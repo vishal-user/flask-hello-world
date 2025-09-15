@@ -6,7 +6,7 @@ node {
 
         stage('Checkout') {
               steps {
-                git 'https://github.com/vishal-user/flask-hello-world.git'
+                  git branch: 'main' , url:'https://github.com/vishal-user/flask-hello-world.git'
               }
         }
 
@@ -37,3 +37,4 @@ node {
         sh 'deactivate || true'
     }
 }
+
