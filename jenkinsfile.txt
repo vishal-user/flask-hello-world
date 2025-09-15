@@ -1,0 +1,65 @@
+pipeline {
+    agent any
+
+    environment {
+        // name of the Python virtual environment folder (optional)
+        VENV = "venv"
+    }
+
+    stages {
+        stage('Checkout') {
+            steps {
+                // clone your repo
+                checkout scm
+            }
+        }
+
+        stage('Setup Python') {
+            steps {
+                // install python, virtualenv etc if needed
+                sh 'python3 -m venv ${VENV}'
+                sh """
+                    source ${VENV}/bin/activate
+                    pip install --upgrade pip
+                    pip install flask
+                """
+            }
+        }
+
+        stage('Test') {
+            steps {
+                // If you have tests, run them here. If not, this can be skipped.
+                sh """
+                    source ${VENV}/bin/activate
+                    # you might add test files and run tests, e.g. pytest
+                    echo "No tests present"
+                """
+            }
+        }
+
+        stage('Run') {
+            steps {
+                // Run your Flask app (for example, in background or via a WSGI server)
+                sh """
+                    source ${VENV}/bin/activate
+                    # Run flask app on port 5000
+                    nohup python app.py &
+                """
+            }
+        }
+    }
+
+    post {
+        always {
+            echo "Cleaning up…"
+            // stop the app if started; depends on how you run it
+            sh "pkill -f 'python app.py' || true"
+        }
+        success {
+            echo "Pipeline succeeded!"
+        }
+        failure {
+            echo "Pipeline failed."
+        }
+    }
+}
