@@ -1,41 +1,71 @@
-node {
-    try {
-        // Define environment variables
-        def venv = 'venv'
-        def appFile = 'app.py'
+pipeline {
+  agent any
 
-        stage('Checkout') {
-              steps {
-                  git branch: 'master' , url:'https://github.com/vishal-user/flask-hello-world.git'
-              }
-        }
+  environment {
+    VENV = 'venv'
+    APP_FILE = 'app.py'
+    PID_FILE = 'app.pid'
+    LOG_FILE = 'app.log'
+  }
 
-        stage('Setup Python Environment') {
-            // Set up Python virtual environment and install dependencies
-            sh """
-                python3 -m venv ${venv}
-                source ${venv}/bin/activate
-                pip install --upgrade pip
-                pip install flask
-            """
-        }
-
-        stage('Run Flask App') {
-            // Run the Flask application
-            sh """
-                source ${venv}/bin/activate
-                nohup python ${appFile} &
-            """
-        }
-    } catch (Exception e) {
-        currentBuild.result = 'FAILURE'
-        throw e
-    } finally {
-        // Clean up: Terminate Flask application and deactivate virtual environment
-        echo 'Cleaning up…'
-        sh 'pkill -f "python app.py" || true'
-        sh 'deactivate || true'
+  stages {
+    stage('Checkout') {
+      steps {
+        git branch: 'master', url: 'https://github.com/vishal-user/flask-hello-world.git'
+      }
     }
+
+    stage('Setup Python Environment') {
+      steps {
+        sh '''
+          set -e
+          # create venv if missing
+          if [ ! -d "${VENV}" ]; then
+            python3 -m venv ${VENV}
+          fi
+          . ${VENV}/bin/activate
+          python -m pip install --upgrade pip setuptools wheel
+          if [ -f requirements.txt ]; then
+            pip install -r requirements.txt
+          else
+            pip install flask
+          fi
+        '''
+      }
+    }
+
+    stage('Run Flask App') {
+      steps {
+        sh '''
+          # run app in background, save PID and redirect logs
+          . ${VENV}/bin/activate
+          nohup python ${APP_FILE} > ${LOG_FILE} 2>&1 &
+          echo $! > ${PID_FILE}
+          echo "Started ${APP_FILE} (PID $(cat ${PID_FILE}))"
+        '''
+      }
+    }
+  }
+
+  post {
+    always {
+      sh '''
+        # stop app if pid file exists
+        if [ -f ${PID_FILE} ]; then
+          kill $(cat ${PID_FILE}) >/dev/null 2>&1 || true
+          rm -f ${PID_FILE}
+          echo "Stopped flask app"
+        fi
+      '''
+      // Optional: keep workspace or cleanup as needed
+      cleanWs()
+    }
+
+    failure {
+      echo "Build failed — check ${LOG_FILE} for app output"
+    }
+  }
 }
+
 
 
