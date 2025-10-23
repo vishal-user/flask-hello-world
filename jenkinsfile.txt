@@ -6,6 +6,7 @@ pipeline {
     APP_FILE = 'app.py'
     PID_FILE = 'app.pid'
     LOG_FILE = 'app.log'
+
   }
 
   stages {
@@ -66,6 +67,7 @@ pipeline {
     }
   }
 }
+
 
 
 
